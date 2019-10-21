@@ -4,17 +4,28 @@ import matplotlib.pyplot as plt
 
 
 def Generating_Kernel(Feature_Matrix, Kernel_type, power=10, BW=10):
+    num_samples = Feature_Matrix.shape[0]
     if Kernel_type == "Gaussian_Kernel":
+        Gaussian_Kernel = np.zeros((num_samples, num_samples))
+        for i in range(num_samples):
+            for j in range(num_samples):
+                # Gaussian_Kernel[i, j] = np.exp((-1 * np.sum((Feature_Matrix[i] - Feature_Matrix[j]) ** 2)) / (2 * BW ** 2))
+                Gaussian_Kernel[i, j] = np.exp(
+                    (-1 * LA.norm(Feature_Matrix[i] - Feature_Matrix[j]) ** 2) / (2 * BW ** 2))
+        return Gaussian_Kernel
+
+    elif Kernel_type == "Quick_Gaussian_Kernel":
         square = np.sum(Feature_Matrix ** 2, axis=1)
         column_vec = square[:, np.newaxis]
         row_vec = square[np.newaxis, :]
         Gaussian_Kernel = np.exp(
             -1 * (-2 * Feature_Matrix.dot(Feature_Matrix.T) + column_vec + row_vec) / (2 * BW ** 2))
+
         return Gaussian_Kernel
     elif Kernel_type == "Linear_Kernel":
-        return X.dot(X.T)
+        return Feature_Matrix.dot(Feature_Matrix.T)
     elif Kernel_type == "Polynomial_Kernel":
-        return (X.dot(X.T) + 1) ** power
+        return (Feature_Matrix.dot(Feature_Matrix.T) + 1) ** power
 
 
 def Generating_Synthetic_Set(num_samples, num_features, Epsilons, bias=False):
@@ -26,14 +37,15 @@ def Generating_Synthetic_Set(num_samples, num_features, Epsilons, bias=False):
             _lambda = Epsilon_1 * np.sum(X[i, :] ** 2) + Epsilon_2 * np.sum(X[i, :])
             if _lambda > 0:
                 break
-    if bias == True:
-        bias_coefficients = np.ones(num_samples)  # [:, np.newaxis]
-        X = np.c_[X, bias_coefficients]
 
     survival_times = np.zeros(num_samples)  # the survival time of each employees
     for i in range(num_samples):
         age = np.random.exponential(Epsilon_1 * np.sum(X[i, :] ** 2) + Epsilon_2 * np.sum(X[i, :]), size=1)
         survival_times[i] = np.ceil(age)
+
+    if bias == True:
+        bias_coefficients = np.ones(num_samples)  # [:, np.newaxis]
+        X = np.c_[X, bias_coefficients]
 
     num_tasks = int(max(survival_times))
 
@@ -85,7 +97,7 @@ def Ages(Y):
 def Calculate_C_index(Age_gt, Age_pred):
     num_samples = len(Age_gt)
     useful_pairs = 0
-    denominator = num_samples * (num_samples - 1) /2
+    denominator = num_samples * (num_samples - 1) / 2
     for i in range(num_samples):
         for j in range(i + 1, num_samples):
             if Age_gt[i] == Age_gt[j]:
@@ -144,8 +156,11 @@ def Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_decay)
     return W, loss_list
 
 
+def Non_Kernel_2c():
+    pass
+
+
 def Split_Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_decay):
-    print(iter_times)
     eta = 1 / (iter_times * weight_decay)
     num_samples = X.shape[0]
     num_tasks = W.shape[1]
@@ -165,7 +180,6 @@ def Split_Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_
     indices = indices[indices[:, 1].argsort()]
     # print(indices)
     W -= eta * weight_decay * W
-
 
     for i in range(num_tasks):
         mask = indices[:, 1] == i
@@ -187,29 +201,205 @@ def Split_Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_
     return W
 
 
+def Kernel_Pegasos_nonchecking(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay):
+    ###################
+    # Define parameters
+    ###################
+    num_samples = Kernel_Matrix.shape[0]
+    num_tasks = Y.shape[1]
+
+    #######################
+    # Define the mini-batch
+    #######################
+    IDs = np.random.rand(batch_size, 1) * num_samples
+    IDs = IDs.astype(int).reshape(-1)
+
+    ###########################################
+    # Make prediction
+    ###########################################
+
+    haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y))
+    haty_IDs /= (iter_times * weight_decay)
+
+    # update alpha
+    mask = Y[IDs] * haty_IDs < 1
+    alpha[IDs] += mask
+
+    return alpha
+
+
 def Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay):
     num_samples = Kernel_Matrix.shape[0]
     IDs = np.random.rand(batch_size, 1) * num_samples
     IDs = IDs.astype(int).reshape(-1)
     haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y)) / (iter_times * weight_decay)
     mask = Y[IDs] * haty_IDs < 1
-    alpha[IDs] += mask
+    alpha_copy = alpha.copy()
+    alpha_copy[IDs] += mask
+    # cause the dream brings back all the memories, the memories we have been through
 
-    '''
+    W_product_before = (alpha * Y).T.dot(Kernel_Matrix.dot(alpha * Y))
+    W_product_after = (alpha_copy * Y).T.dot(Kernel_Matrix.dot(alpha_copy * Y))
 
+    loss_before = 0.5 * weight_decay * np.sum(W_product_before.diagonal())
+    loss_after = 0.5 * weight_decay * np.sum(W_product_after.diagonal())
+
+    hatY_before = Kernel_Matrix.dot(alpha * Y) / (iter_times * weight_decay)
+    hatY_after = Kernel_Matrix.dot(alpha_copy * Y) / (iter_times * weight_decay)
+
+    mask_before = Y * hatY_before > 0
+    mask_after = Y * hatY_after > 0
+
+    l1_loss_before = np.sum(1 - (Y * hatY_before)[mask_before])
+    l1_loss_after = np.sum(1 - (Y * hatY_after)[mask_after])
+
+    loss_before += l1_loss_before
+    loss_after += l1_loss_after
+
+    if loss_after < loss_before:
+        alpha = alpha_copy
+
+    return alpha
+
+
+def Split_Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay):
+    # print(iter_times)
+
+    ###################
+    # Define parameters
+    ###################
+    num_samples = Kernel_Matrix.shape[0]
+    num_tasks = Y.shape[1]
+
+    #######################
+    # Define the mini-batch
+    #######################
+    IDs = np.random.rand(batch_size, 1) * num_samples
+    IDs = IDs.astype(int).reshape(-1)
+
+    ###########################################
+    # Make prediction using the old classifiers
+    ###########################################
+    haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y)) / (iter_times * weight_decay)
+
+    ############################################################
+    # Define two classifiers: before (update) and after (update)
+    ############################################################
+    mask = Y[IDs] * haty_IDs < 1
     alpha_copy = alpha.copy()
     alpha_copy[IDs] += mask
 
-    W_product = (alpha_copy * Y_truth).T.dot(Kernel_Matrix.dot(alpha_copy * Y_truth))
-    loss = 0.5 * np.sum(W_product.diagonal())
-    hatY =  Kernel_Matrix.dot(alpha_copy * Y_truth) / ( iter_times * weight_decay)
-    mask1 = Y_truth*hatY <  0
-    loss += np.sum(abs((Y_truth*hatY))[mask1])
+    W_product_before = (alpha * Y).T.dot(Kernel_Matrix.dot(alpha * Y))
+    W_product_after = (alpha_copy * Y).T.dot(Kernel_Matrix.dot(alpha_copy * Y))
+    loss_before = 0.5 * weight_decay * W_product_before.diagonal()
+    loss_after = 0.5 * weight_decay * W_product_after.diagonal()
 
-    if iter_times == 1 or loss < loss_list[-1]:
-        loss_list.append(loss)
-        # alpha = alpha_copy
+    hatY_before = Kernel_Matrix.dot(alpha * Y) / (iter_times * weight_decay)
+    hatY_after = Kernel_Matrix.dot(alpha_copy * Y) / (iter_times * weight_decay)
+
+    for i in range(num_tasks):
+        mask_before = (Y[:, i] * hatY_before[:, i]) < 1
+        mask_after = (Y[:, i] * hatY_after[:, i]) < 1
+
+        l1_loss_before = np.sum(1 - (Y[:, i] * hatY_before[:, i])[mask_before])
+        l1_loss_after = np.sum(1 - (Y[:, i] * hatY_after[:, i])[mask_after])
+
+        loss_before[i] += l1_loss_before
+        loss_after[i] += l1_loss_after
+
+        if loss_after[i] < loss_before[i]:
+            alpha[:, i] = alpha_copy[:, i]
+
+    return alpha
+
+
+def new_C2(Kernel_Matrix, Y, alpha, beta, batch_size, iter_times, weight_decay, checking=False):
+    ###################
+    # Define parameters
+    ###################
+    num_samples = Kernel_Matrix.shape[0]
+    num_tasks = Y.shape[1]
+
+    #######################
+    # Define the mini-batch
+    #######################
+    IDs = np.random.rand(batch_size, 1) * num_samples
+    IDs = IDs.astype(int).reshape(-1)
+
+    ###########################################
+    # Make prediction
+    ###########################################
+
+    haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y))
+    for i in range(num_samples):
+        hstack_M_K_i = Kernel_Matrix[i, IDs].repeat(num_tasks).reshape(batch_size, num_tasks)
+        haty_IDs += hstack_M_K_i.dot(beta[i, :, :])
+    haty_IDs /= (iter_times * weight_decay)
+
+    # update alpha
+
+    if checking:
+        mask = Y[IDs] * haty_IDs < 1
+        alpha_copy = alpha.copy()
+        alpha_copy[IDs] += mask
+        # cause the dream brings back all the memories, the memories we have been through
+
+        W_product_before = (alpha * Y).T.dot(Kernel_Matrix.dot(alpha * Y))
+        W_product_after = (alpha_copy * Y).T.dot(Kernel_Matrix.dot(alpha_copy * Y))
+
+        loss_before = 0.5 * weight_decay * np.sum(W_product_before.diagonal())
+        loss_after = 0.5 * weight_decay * np.sum(W_product_after.diagonal())
+
+        hatY_before = Kernel_Matrix.dot(alpha * Y) / (iter_times * weight_decay)
+        hatY_after = Kernel_Matrix.dot(alpha_copy * Y) / (iter_times * weight_decay)
+
+        mask_before = Y * hatY_before > 0
+        mask_after = Y * hatY_after > 0
+
+        l1_loss_before = np.sum(1 - (Y * hatY_before)[mask_before])
+        l1_loss_after = np.sum(1 - (Y * hatY_after)[mask_after])
+
+        loss_before += l1_loss_before
+        loss_after += l1_loss_after
+
+        if loss_after < loss_before:
+            alpha = alpha_copy
+
+    if not checking:
+        mask = Y[IDs] * haty_IDs < 1
         alpha[IDs] += mask
-        # print("At iteration:",t, "the loss is,", loss)
-        # print(alpha)
-    '''
+
+    ##update beta
+    for i in range(len(IDs)):
+        if np.argwhere(haty_IDs[i, :] < 0) != []:
+            [neg_idx_list] = np.argwhere(haty_IDs[i, :] < 0)
+            first_minus = neg_idx_list[0]
+            [pos_idx_list] = np.argwhere(haty_IDs[i, first_minus:] > 0)
+
+            pos_vec = np.zeros(num_tasks)
+            neg_vec = np.zeros(num_tasks)
+            pos_vec[pos_idx_list] = 1
+            neg_vec[neg_idx_list] = 1
+
+            matrix = np.outer(neg_vec, pos_vec)
+
+            lower_tri = np.tril_indices(num_tasks)
+
+            matrix[lower_tri] = 0
+
+            for t in range(num_tasks):
+                matrix[t, t] = (-1) * np.sum(matrix[t + 1:])
+
+            beta[i] += matrix
+
+        '''
+        if np.argwhere(haty_IDs[i, :] < 0) != []:
+            [negative_idx_list] = np.argwhere(haty_IDs[i, :] < 0)
+            for negative_idx in negative_idx_list:
+                [pos_idx_list] = np.argwhere(haty_IDs[i, negative_idx:] > 0)
+                if pos_idx_list:
+                    beta[ID[i], negative_idx, pos_idx_list] += 1
+                beta[IDs[i], negative_idx, negative_idx] += (-1) * len(pos_idx_list)
+        '''
+
+    return alpha, beta
