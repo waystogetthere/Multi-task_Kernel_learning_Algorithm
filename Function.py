@@ -1,6 +1,37 @@
 import numpy as np
 import numpy.linalg as LA
 import matplotlib.pyplot as plt
+import pandas as pd
+
+
+def read_files(filename):
+    df = pd.read_csv(filename)
+
+    left_bracket = int(filename.find('('))
+    plus_sign = int(filename.find('+'))
+    num_train = int(filename[left_bracket + 1: plus_sign])
+
+    X = df.to_numpy()[:, 1:-2]
+
+    num_samples = X.shape[0]
+    X_train = X[:num_train]
+    X_val = X[num_train:]
+
+    survival_times = df['survival_time'].to_numpy()
+    print(survival_times)
+    num_tasks = int(np.max(survival_times))
+
+    Y = np.ones((num_samples, num_tasks))
+
+    for i in range(num_samples):
+        Y[i, int(survival_times[i]):] = -1
+    Y_train = Y[:num_train]
+    Y_val = Y[num_train:]
+
+    covariates = (X, X_train, X_val)
+    target_matrix = (Y, Y_train, Y_val)
+    Survival_t = (survival_times)
+    return covariates, target_matrix, Survival_t
 
 
 def Generating_Kernel(Feature_Matrix, Kernel_type, power=10, BW=10):
@@ -82,6 +113,18 @@ def Validate_Synthetic_DataSet(Kernel_Matrix, survival_times):
     plt.show()
 
 
+def weight_avg_Ages(Y):
+    num_samples = Y.shape[0]
+    num_tasks = Y.shape[1]
+    predict_age = []
+    for i in range(num_samples):
+        states = Y[i]
+        [violated_indices] = np.where(states < 0)
+        age = num_tasks if len(violated_indices) == 0 else violated_indices[0]
+        predict_age.append(age)
+    return predict_age
+
+
 def Ages(Y):
     num_samples = Y.shape[0]
     num_tasks = Y.shape[1]
@@ -90,6 +133,24 @@ def Ages(Y):
         states = Y[i]
         [violated_indices] = np.where(states < 0)
         age = num_tasks if len(violated_indices) == 0 else violated_indices[0]
+        predict_age.append(age)
+    return predict_age
+
+
+def Weighted_Ages(Y):
+    num_samples = Y.shape[0]
+    # num_tasks = Y.shape[1]
+    predict_age = []
+    for i in range(num_samples):
+        states = Y[i]
+        [dead_states] = np.where(states < 0)
+        st_index = 0
+        for m in range(len(dead_states) - 1):
+            if dead_states[m + 1] - dead_states[m] != 0:
+                dead_states[st_index: m + 1] = dead_states[st_index]
+                st_index = m + 1
+
+        age = np.mean(dead_states)
         predict_age.append(age)
     return predict_age
 
