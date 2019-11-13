@@ -112,19 +112,6 @@ def Validate_Synthetic_DataSet(Kernel_Matrix, survival_times):
     plt.ylim(0, 200)
     plt.show()
 
-
-def weight_avg_Ages(Y):
-    num_samples = Y.shape[0]
-    num_tasks = Y.shape[1]
-    predict_age = []
-    for i in range(num_samples):
-        states = Y[i]
-        [violated_indices] = np.where(states < 0)
-        age = num_tasks if len(violated_indices) == 0 else violated_indices[0]
-        predict_age.append(age)
-    return predict_age
-
-
 def Ages(Y):
     num_samples = Y.shape[0]
     num_tasks = Y.shape[1]
@@ -146,7 +133,7 @@ def Weighted_Ages(Y):
         [dead_states] = np.where(states < 0)
         st_index = 0
         for m in range(len(dead_states) - 1):
-            if dead_states[m + 1] - dead_states[m] != 0:
+            if dead_states[m + 1] - dead_states[m] != 1:
                 dead_states[st_index: m + 1] = dead_states[st_index]
                 st_index = m + 1
 
