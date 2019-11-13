@@ -166,7 +166,7 @@ def Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_decay)
     dL1_W = np.zeros((num_features, num_tasks))
 
     # select a mini batch
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
 
     x = X[IDs]
     y = Y[IDs]
@@ -214,7 +214,7 @@ def Split_Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_
     num_tasks = W.shape[1]
 
     # select a mini batch
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
     x = X[IDs]
     y = Y[IDs]
 
@@ -258,7 +258,7 @@ def Kernel_Pegasos_nonchecking(batch_size, Kernel_Matrix, alpha, Y, iter_times, 
     #######################
     # Define the mini-batch
     #######################
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
 
 
     ###########################################
@@ -277,7 +277,7 @@ def Kernel_Pegasos_nonchecking(batch_size, Kernel_Matrix, alpha, Y, iter_times, 
 
 def Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay):
     num_samples = Kernel_Matrix.shape[0]
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
     haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y)) / (iter_times * weight_decay)
     mask = Y[IDs] * haty_IDs < 1
     alpha_copy = alpha.copy()
@@ -320,7 +320,7 @@ def Split_Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight
     #######################
     # Define the mini-batch
     #######################
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
 
     ###########################################
     # Make prediction using the old classifiers
@@ -368,7 +368,7 @@ def new_C2(Kernel_Matrix, Y, alpha, beta, batch_size, iter_times, weight_decay, 
     #######################
     # Define the mini-batch
     #######################
-    IDs = random.sample(range(num_samples), batch_size)
+    IDs = np.random.choice(num_samples, batch_size,replace=False)
 
     ###########################################
     # Make prediction
