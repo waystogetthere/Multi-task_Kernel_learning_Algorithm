@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import random
 
+
 def read_files(filename):
     df = pd.read_csv(filename)
 
@@ -112,6 +113,7 @@ def Validate_Synthetic_DataSet(Kernel_Matrix, survival_times):
     plt.ylim(0, 200)
     plt.show()
 
+
 def Ages(Y):
     num_samples = Y.shape[0]
     num_tasks = Y.shape[1]
@@ -132,11 +134,12 @@ def Weighted_Ages(Y):
         states = Y[i]
         [dead_states] = np.where(states < 0)
         st_index = 0
-        for m in range(len(dead_states) - 1):
+        for m in range(len(dead_states) -1):
             if dead_states[m + 1] - dead_states[m] != 1:
                 dead_states[st_index: m + 1] = dead_states[st_index]
                 st_index = m + 1
-
+            elif m == len(dead_states) - 2:
+                dead_states[st_index: m + 2] = dead_states[st_index]
         age = np.mean(dead_states)
         predict_age.append(age)
     return predict_age
@@ -166,7 +169,7 @@ def Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_decay)
     dL1_W = np.zeros((num_features, num_tasks))
 
     # select a mini batch
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
+    IDs = np.random.choice(num_samples, batch_size, replace=False)
 
     x = X[IDs]
     y = Y[IDs]
@@ -214,7 +217,7 @@ def Split_Non_Kernel_Pegasos(batch_size, X, W, Y, loss_list, iter_times, weight_
     num_tasks = W.shape[1]
 
     # select a mini batch
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
+    IDs = np.random.choice(num_samples, batch_size, replace=False)
     x = X[IDs]
     y = Y[IDs]
 
@@ -258,8 +261,7 @@ def Kernel_Pegasos_nonchecking(batch_size, Kernel_Matrix, alpha, Y, iter_times, 
     #######################
     # Define the mini-batch
     #######################
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
-
+    IDs = np.random.choice(num_samples, batch_size, replace=False)
 
     ###########################################
     # Make prediction
@@ -277,7 +279,7 @@ def Kernel_Pegasos_nonchecking(batch_size, Kernel_Matrix, alpha, Y, iter_times, 
 
 def Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay):
     num_samples = Kernel_Matrix.shape[0]
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
+    IDs = np.random.choice(num_samples, batch_size, replace=False)
     haty_IDs = (Kernel_Matrix[IDs].dot(alpha * Y)) / (iter_times * weight_decay)
     mask = Y[IDs] * haty_IDs < 1
     alpha_copy = alpha.copy()
@@ -320,7 +322,7 @@ def Split_Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight
     #######################
     # Define the mini-batch
     #######################
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
+    IDs = np.random.choice(num_samples, batch_size, replace=False)
 
     ###########################################
     # Make prediction using the old classifiers
@@ -368,7 +370,9 @@ def new_C2(Kernel_Matrix, Y, alpha, beta, batch_size, iter_times, weight_decay, 
     #######################
     # Define the mini-batch
     #######################
-    IDs = np.random.choice(num_samples, batch_size,replace=False)
+    IDs = np.random.rand(batch_size, 1) * num_samples
+    IDs = IDs.astype(int).reshape(-1)
+    # IDs = np.random.choice(num_samples, batch_size,replace=False)
 
     ###########################################
     # Make prediction
