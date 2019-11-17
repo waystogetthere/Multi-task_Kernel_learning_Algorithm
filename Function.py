@@ -125,6 +125,15 @@ def Ages(Y):
         predict_age.append(age)
     return predict_age
 
+def new_ages(Y):
+    num_samples = Y.shape[0]
+    num_tasks = Y.shape[1]
+    predict_age = []
+    for i in range(num_samples):
+        states = Y[i]
+        age = np.sum(states > 0)
+        predict_age.append(age)
+    return predict_age
 
 def Weighted_Ages(Y):
     num_samples = Y.shape[0]
@@ -295,8 +304,8 @@ def Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay
     hatY_before = Kernel_Matrix.dot(alpha * Y) / (iter_times * weight_decay)
     hatY_after = Kernel_Matrix.dot(alpha_copy * Y) / (iter_times * weight_decay)
 
-    mask_before = Y * hatY_before > 0
-    mask_after = Y * hatY_after > 0
+    mask_before = Y * hatY_before < 1
+    mask_after = Y * hatY_after < 1
 
     l1_loss_before = np.sum(1 - (Y * hatY_before)[mask_before])
     l1_loss_after = np.sum(1 - (Y * hatY_after)[mask_after])
@@ -305,6 +314,7 @@ def Kernel_Pegasos(batch_size, Kernel_Matrix, alpha, Y, iter_times, weight_decay
     loss_after += l1_loss_after
 
     if loss_after < loss_before:
+        print("iter:", iter_times, "update!")
         alpha = alpha_copy
 
     return alpha
@@ -401,8 +411,8 @@ def new_C2(Kernel_Matrix, Y, alpha, beta, batch_size, iter_times, weight_decay, 
         hatY_before = Kernel_Matrix.dot(alpha * Y) / (iter_times * weight_decay)
         hatY_after = Kernel_Matrix.dot(alpha_copy * Y) / (iter_times * weight_decay)
 
-        mask_before = Y * hatY_before > 0
-        mask_after = Y * hatY_after > 0
+        mask_before = Y * hatY_before < 1
+        mask_after = Y * hatY_after < 1
 
         l1_loss_before = np.sum(1 - (Y * hatY_before)[mask_before])
         l1_loss_after = np.sum(1 - (Y * hatY_after)[mask_after])
